@@ -380,11 +380,11 @@ if __name__ == '__main__':
     scaling = (20, 50)
 
     conv_shape = (int(image.shape[0]+20*scaling[0]), int(image.shape[1]+20*scaling[0]-1), int(image.shape[2]+20*scaling[1]-1))
-    conv_image = np.memmap('conv_image_out.dat', dtype='float64', mode='r', shape=conv_shape)
+    conv_image = np.memmap('conv_image_out.dat', dtype='float64', mode='w+', shape=conv_shape)
 
     print(np.min(conv_image), np.max(conv_image))
 
-    # conv_image[:] = box3Dconvolve(image, psf, scaling)[:]
+    conv_image[:] = box3Dconvolve(image, psf, scaling)[:]
 
     binned_conv_image = xyz_binning(conv_image, 20, 20, 50)
 
