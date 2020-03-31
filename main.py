@@ -186,7 +186,7 @@ class Simulator:
 
         with tempfile.NamedTemporaryFile() as conv_2_temp:
             conv_2_shape = (volume.shape[0] + len(self.psf_x) - 1,
-                            volume.shape[1] + len(self.psf_y) - 1,argparse
+                            volume.shape[1] + len(self.psf_y) - 1,
                             volume.shape[2] + len(self.psf_z) - 1)
             conv_2 = np.memmap(conv_2_temp.name,
                                dtype='float64',
