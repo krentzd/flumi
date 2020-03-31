@@ -64,6 +64,11 @@ Clone this repository:
 git clone https://github.com/krentzd/flumi.git
 ```
 
+Otherwise create a new conda environment:
+```
+conda env create -f environment.yml
+```
+
 Navigate to the folder called `flumi` and run:
 ```
 python main.py --struc 'segmentation.txt' --psf 'PSF_BW.tif' --save_as 'Simulation'
