@@ -59,14 +59,14 @@ pip install tensorly
 pip install scipy
 ```
 
-Clone this repository:
-```
-git clone https://github.com/krentzd/flumi.git
-```
-
 Otherwise create a new conda environment:
 ```
 conda env create -f environment.yml
+```
+
+Clone this repository:
+```
+git clone https://github.com/krentzd/flumi.git
 ```
 
 Navigate to the folder called `flumi` and run:
