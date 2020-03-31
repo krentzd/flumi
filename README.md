@@ -11,3 +11,17 @@ FLUMI is a straightforward fluorescence microscopy simulator that uses point-clo
     - The sensor detection accuracy is modelled as a Poisson distribution 
     - In the analog-to-digial-conversion step a user-defined gain is applied
     - Additive electronic noise is modelled as a Gaussian where the DC-offset and sigma can be set by the user
+
+## How do I use it?
+
+FLUMI can be executed from the command line allowing the user to specify the following arguments:
+- input structure (string): `--struc` (required)
+- target location (string): `--save_as` (required)
+- experimental PSF in TIFF format (string): `--psf`
+- numerical aperture (float): `--NA`
+- wavelength (int): `--wl`
+- gain (int): `--gain`
+- DC-offset (int): `--dc_off`
+- sigma noise (float): `--sigma`
+- voxel grid size which is the pixelsize of the input structure (int tuple of shape (x, y, z)): `--voxel_size`
+- PSF size which is also the pixelsize of the simulated sensor (int tuple of shape (x, y, z)): `--psf_size`
