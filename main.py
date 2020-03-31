@@ -24,6 +24,8 @@ import numpy as np
 
 from tensorly.decomposition import parafac
 
+import matplotlib.pyplot as plt
+
 from scipy.signal import gaussian
 from scipy.signal import convolve
 from scipy.ndimage import zoom
@@ -33,8 +35,8 @@ from tqdm import tqdm
 
 class Simulator:
 
-    def __init__(self, numerical_aperture=0.5,
-                       wavelength=650,
+    def __init__(self, numerical_aperture=1,
+                       wavelength=250,
                        gain=1,
                        dc_offset=200,
                        noise_sigma=50,
@@ -84,8 +86,11 @@ class Simulator:
 
         if self.psf is None:
             self.psf_x, self.psf_y, self.psf_z = self._get_gaussians_from_params()
+            self.psf_shape = (len(self.psf_x), len(self.psf_y), len(self.psf_z))
+
         else:
             self.psf_x, self.psf_y, self.psf_z = self._get_gaussians_from_kernel()
+            self.psf_shape = (len(self.psf_x), len(self.psf_y), len(self.psf_z))
 
         # Output shape from convolution is M+N-1 where M is image size and N kernel size
         self.conv_shape = (self.volume.shape[0] + len(self.psf_x) - 1,
@@ -101,9 +106,9 @@ class Simulator:
         if conv_method is 'box':
             self.box3Dconvolve()
         elif conv_method is 'additive':
-            self.conv_volume[:] = self.additive3Dconvolve(self.volume, self.psf, self.scaling)[:]
+            self.additive3Dconvolve()
 
-        self.binned_conv_volume = self.xyz_binning(self.conv_volume, int(self.scaling[0]), int(self.scaling[1]), int(self.scaling[2]))
+        self.binned_conv_volume = self.acquire()
 
     def save(self, path, type='directory'):
 
@@ -121,12 +126,12 @@ class Simulator:
         elif type is 'tif':
             if os.path.splitext(path)[1] is '':
                 path = path + '.tif'
-            binned_conv_volume_out = np.swapaxes(self.binned_conv_volume, 2, 0).astype('uint16')
-            tifffile.imwrite(path, binned_conv_volume_out)
+            binned_conv_volume_out = np.swapaxes(self.binned_conv_volume, 2, 0).astype('uint8')
+            tifffile.imwrite(path, binned_conv_volume_out, imagej=True)
 
     def box3Dconvolve(self):
 
-        box_shape = self._get_box_shape(self.volume.shape, self.psf.shape)
+        box_shape = self._get_box_shape(self.volume.shape, self.psf_shape)
         num_box = (self.volume.shape[0] * self.volume.shape[1] * self.volume.shape[2])/(box_shape[0] * box_shape[1] * box_shape[2])
 
         assert int(num_box) == num_box, 'ConvError: Box does not fit image!'
@@ -202,15 +207,16 @@ class Simulator:
 
         return conv_2
 
-    def xyz_binning(self, image, x_bin_size, y_bin_size, z_bin_size):
-
-        binned_image = np.zeros((int(image.shape[0]/x_bin_size)+1, int(image.shape[1]/y_bin_size)+1, int(image.shape[2]/z_bin_size)+1))
-        num_bins = int(image.shape[0]*image.shape[1]*image.shape[2])/(x_bin_size*y_bin_size*z_bin_size)
+    def acquire(self):
+        x_bin_size, y_bin_size, z_bin_size = int(self.scaling[0]), int(self.scaling[1]), int(self.scaling[2])
+        binned_image_shape = (int(self.conv_shape[0]/x_bin_size+1), int(self.conv_shape[1]/y_bin_size+1), int(self.conv_shape[2]/z_bin_size+1))
+        binned_image = np.zeros(binned_image_shape)
+        num_bins = int(self.conv_shape[0]*self.conv_shape[1]*self.conv_shape[2])/(x_bin_size*y_bin_size*z_bin_size)
 
         x_last, y_last, z_last = (0, 0, 0)
 
-        for i in tqdm(range(0, int(num_bins)), desc='Binning'):
-            bin = image[x_last:x_last+x_bin_size, y_last:y_last+y_bin_size, z_last:z_last+z_bin_size]
+        for i in tqdm(range(0, int(num_bins)), desc='Acquiring'):
+            bin = self.conv_volume[x_last:x_last+x_bin_size, y_last:y_last+y_bin_size, z_last:z_last+z_bin_size]
             if bin.size == 0:
                 continue
             detected_value = np.random.poisson(np.max(bin))
@@ -220,11 +226,11 @@ class Simulator:
 
             x_last += x_bin_size
 
-            if (x_last >= image.shape[0]) and (y_last <= image.shape[1]):
+            if (x_last >= self.conv_shape[0]) and (y_last <= self.conv_shape[1]):
                 x_last = 0
                 y_last += y_bin_size
 
-            if (y_last >= image.shape[1]):
+            if (y_last >= self.conv_shape[1]):
                 x_last = 0
                 y_last = 0
                 z_last += z_bin_size
@@ -243,7 +249,7 @@ class Simulator:
 
     def _get_gaussian(self, params, scaling):
 
-        return params[0]*np.expand_dims(gaussian(int(params[2]*12*scaling), std=params[2]*scaling), 1)
+        return params[0]*np.expand_dims(gaussian(int(params[1]*scaling), std=params[2]*scaling), 1)
 
     def _get_gaussians_from_kernel(self):
         try:
@@ -252,25 +258,29 @@ class Simulator:
             __, (x, y, z) = parafac(self.psf, 1)
 
         gauss_params = np.abs(self._fit_gaussian(np.array(np.squeeze(x))))
+        gauss_params[1] = gauss_params[2]*12*scaling
         x = self._get_gaussian(gauss_params, self.scaling[0])
 
         gauss_params = np.abs(self._fit_gaussian(np.array(np.squeeze(y))))
+        gauss_params[1] = gauss_params[2]*12*scaling
         y = self._get_gaussian(gauss_params, self.scaling[1])
 
         gauss_params = np.abs(self._fit_gaussian(np.array(np.squeeze(z))))
+        gauss_params[1] = gauss_params[2]*12*scaling
         z = self._get_gaussian(gauss_params, self.scaling[2])
 
         return x, y, z
 
     def _get_gaussians_from_params(self):
 
-        gauss_params = [1, 128, (0.21*self.wavelength)/self.numerical_aperture]
+        gauss_params = [1, 2*(0.61*self.wavelength)/self.numerical_aperture, (0.21*self.wavelength)/self.numerical_aperture]
+        print(gauss_params)
         x = self._get_gaussian(gauss_params, self.scaling[0])
 
-        gauss_params = [1, 128, (0.21*self.wavelength)/self.numerical_aperture]
+        gauss_params = [1, 2*(0.61*self.wavelength)/self.numerical_aperture, (0.21*self.wavelength)/self.numerical_aperture]
         y = self._get_gaussian(gauss_params, self.scaling[1])
 
-        gauss_params = [1, 128, (0.21*self.wavelength)/self.numerical_aperture]
+        gauss_params = [1, 2*(0.61*self.wavelength)/self.numerical_aperture, (0.21*self.wavelength)/self.numerical_aperture]
         z = self._get_gaussian(gauss_params, self.scaling[2])
 
         return x, y, z
@@ -314,5 +324,5 @@ class Simulator:
 
 if __name__ == '__main__':
     sim = Simulator()
-    sim.run(structure='segmentation.txt', psf='PSF_BW.tif')
+    sim.run(structure='segmentation.txt') #, psf='PSF_BW.tif')
     sim.save('Segmentation_first_run')
