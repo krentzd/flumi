@@ -103,19 +103,19 @@ class Simulator:
                                          mode='w+',
                                          shape=self.conv_shape)
 
-        if conv_method is 'box':
+        if conv_method == 'box':
             self.box3Dconvolve()
-        elif conv_method is 'additive':
+        elif conv_method == 'additive':
             self.additive3Dconvolve()
 
         self.binned_conv_volume = self.acquire()
 
     def save(self, path, type='directory'):
 
-        if os.path.splitext(path)[1] is 'tiff' or 'tif':
+        if os.path.splitext(path)[1] == 'tiff' or 'tif':
             type = 'tif'
 
-        if type is 'directory':
+        if type == 'directory':
             if not os.path.exists(path):
                 os.makedirs(path)
             for i in tqdm(range(0, self.binned_conv_volume.shape[2]), desc='Saving images to {}'.format(path)):
@@ -123,8 +123,8 @@ class Simulator:
                 print(save_path)
                 imageio.imwrite(save_path, self.binned_conv_volume[:,:,i].astype('int16'))
 
-        elif type is 'tif':
-            if os.path.splitext(path)[1] is '':
+        elif type == 'tif':
+            if os.path.splitext(path)[1] == '':
                 path = path + '.tif'
             binned_conv_volume_out = np.swapaxes(self.binned_conv_volume, 2, 0).astype('int16')
             tifffile.imwrite(path, binned_conv_volume_out, imagej=True)
