@@ -12,6 +12,8 @@ FLUMI is a straightforward fluorescence microscopy simulator that uses point-clo
     - In the analog-to-digial-conversion step a user-defined gain is applied
     - Additive electronic noise is modelled as a Gaussian where the DC-offset and sigma can be set by the user
 
+![alt text](https://raw.githubusercontent.com/krentzd/project-superball/colour_stack.gif)
+
 ## How do I use it?
 
 FLUMI can be executed from the command line allowing the user to specify the following arguments:
