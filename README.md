@@ -61,7 +61,7 @@ pip install scipy
 
 Otherwise create a new conda environment:
 ```
-conda env create -f environment.yml
+conda env create -f flumi.yml
 ```
 
 ### Clone Repository
