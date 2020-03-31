@@ -35,8 +35,8 @@ python main.py --struc 'segmentation.txt' --psf 'PSF_BW.tif' --save_as 'Simulati
 ```
 
 ## Installation 
-
-The following dependencies need to be installed:
+FLUMI runs on Python 3.7.4 and backward compatibility cannot be guaranteed.
+### Install Dependencies  
 ```
 pip install tifffile
 ```
@@ -59,11 +59,17 @@ pip install tensorly
 pip install scipy
 ```
 
-Clone this repository:
+Otherwise create a new conda environment:
+```
+conda env create -f flumi.yml
+```
+
+### Clone Repository
 ```
 git clone https://github.com/krentzd/flumi.git
 ```
 
+### Run FLUMI
 Navigate to the folder called `flumi` and run:
 ```
 python main.py --struc 'segmentation.txt' --psf 'PSF_BW.tif' --save_as 'Simulation'
