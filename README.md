@@ -36,7 +36,6 @@ python main.py --struc 'segmentation.txt' --psf 'PSF_BW.tif' --save_as 'Simulati
 
 ## Installation 
 ### Install Dependencies  
-The following dependencies need to be installed:
 ```
 pip install tifffile
 ```
@@ -64,8 +63,7 @@ Otherwise create a new conda environment:
 conda env create -f environment.yml
 ```
 
-### Download Repository
-Clone this repository:
+### Clone Repository
 ```
 git clone https://github.com/krentzd/flumi.git
 ```
