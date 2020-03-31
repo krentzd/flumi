@@ -1,4 +1,4 @@
-# Fluorescence Microscopy Simulator(FLUMI
+# Fluorescence Microscopy Simulator (FLUMI)
 
 ## What is this?
 
