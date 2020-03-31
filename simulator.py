@@ -17,6 +17,7 @@
 import random
 import tifffile
 import os
+import napari
 
 import numpy as np
 
@@ -129,36 +130,26 @@ def get_gaussian(params, scaling):
 def xyz_binning(image, x_bin_size, y_bin_size, z_bin_size):
 
     binned_image = np.zeros((int(image.shape[0]/x_bin_size)+1, int(image.shape[1]/y_bin_size)+1, int(image.shape[2]/z_bin_size)+1))
-
-    print('Binned image size: ', binned_image.shape)
-    print('Image size: ', image.shape)
-
     num_bins = int(image.shape[0]*image.shape[1]*image.shape[2])/(x_bin_size*y_bin_size*z_bin_size)
 
     x_last, y_last, z_last = (0, 0, 0)
 
-    print('Binning image...')
+    for i in tqdm(range(0, int(num_bins)), desc='Binning'):
 
-    for i in tqdm(range(0, int(num_bins))):
+        bin = image[x_last:x_last+x_bin_size, y_last:y_last+y_bin_size, z_last:z_last+z_bin_size]
 
-        # print(int(x_last/x_bin_size), int(y_last/y_bin_size), int(z_last/z_bin_size))
+        if bin.size == 0:
+            continue
+        # Noise from detector is distributed as Poisson --> how well does sensor pick up value
+        detected_value = np.random.poisson(np.max(bin))
+        # Set gain and do ADC
+        gain = 1
+        digital_value = int(detected_value)*gain
+        # Add Gaussian noise
+        pixel_value = digital_value + np.random.normal(700, 300)
 
-        # print('Bin image values: ', int(image.shape[0]/x_bin_size), int(image.shape[0]/y_bin_size), int(image.shape[0]/z_bin_size))
-
-        try:
-            # Noise from detector is distributed as Poisson --> how well does sensor pick up value
-            detected_value = np.random.poisson(np.max(image[x_last:x_last+x_bin_size, y_last:y_last+y_bin_size, z_last:z_last+z_bin_size]))
-            # Set gain and do ADC
-            gain = 1
-            digital_value = int(detected_value)*gain
-            # Add Gaussian noise
-            pixel_value = digital_value + np.random.normal(700, 300)
-
-            # print('Bin value: ', pixel_value)
-            binned_image[int(x_last/x_bin_size), int(y_last/y_bin_size), int(z_last/z_bin_size)] = pixel_value
-        except ValueError:
-            pass
-            # print('Failed bin: ', x_bin_size-x_last, y_bin_size-y_last, z_bin_size-z_last)
+        # print('Bin value: ', pixel_value)
+        binned_image[int(x_last/x_bin_size), int(y_last/y_bin_size), int(z_last/z_bin_size)] = pixel_value
 
         x_last += x_bin_size
 
@@ -167,7 +158,7 @@ def xyz_binning(image, x_bin_size, y_bin_size, z_bin_size):
             x_last = 0
             y_last += y_bin_size
 
-        if (y_last >= image.shape[1]) and (x_last >= image.shape[0]):
+        if (y_last >= image.shape[1]):
             # print('In z')
             x_last = 0
             y_last = 0
@@ -183,54 +174,21 @@ def separable3Dconvolve(image, kernel, scaling):
     scaling_xy, scaling_z = scaling
 
     # 3D SVD decomposition
-    x, y, z = parafac(kernel, 1)
+    try:
+        x, y, z = parafac(kernel, 1)
+    except ValueError:
+        __, (x, y, z) = parafac(kernel, 1)
+
     # x, y, z = (np.expand_dims(gaussian(256, std=10), 1), np.expand_dims(gaussian(256, std=10), 1), np.expand_dims(gaussian(65, std=10), 1))
-    print(x.shape, y.shape, z.shape)
-
-    plt.plot(x)
-    plt.plot(y)
-    plt.plot(z)
-    # plt.show()
-
-    xy = np.dot(x, y.T)
-    xy_rank = np.linalg.matrix_rank(xy)
-    print(xy.shape, xy_rank)
 
     gauss_params = np.abs(fit_gaussian(np.array(np.squeeze(x))))
-    print(gauss_params[0], gauss_params[1], gauss_params[2])
     x = get_gaussian(gauss_params, scaling_xy)
-    plt.plot(x)
 
     gauss_params = np.abs(fit_gaussian(np.array(np.squeeze(y))))
-    print(gauss_params[0], gauss_params[1], gauss_params[2])
     y = get_gaussian(gauss_params, scaling_xy)
-    plt.plot(y)
 
     gauss_params = np.abs(fit_gaussian(np.array(np.squeeze(z))))
-    print(gauss_params[0], gauss_params[1], gauss_params[2])
     z = get_gaussian(gauss_params, scaling_z)
-    plt.plot(z)
-
-    # plt.show()
-
-    # xyz = np.zeros((xy.shape[0], xy.shape[1], z.shape[0]))
-    # for i in range(0, z.shape[0]):
-    #     xyz[:,:,i] = xy[:,:]*z[i]
-    # print(xyz.shape)
-
-    # x, y, z = parafac(xyz, 1)
-
-    # print(np.max(x_t), np.max(y_t), np.max(z_t))
-    # print(np.max(x_t)*np.max(y_t)*np.max(z_t))
-    #
-    # plt.plot(x_t)
-    # plt.plot(y_t)
-    # plt.plot(z_t)
-    # plt.show()
-
-    # for i in tqdm(range(0, xyz.shape[2])):
-    #     plt.imshow(xyz[:,:,i], vmin=0, vmax=1, cmap='magma')
-    #     plt.savefig('psf/' + str(i) + '.png')
 
     # Output from convolution is M+N-1 where M is input image and N is kernel size
     conv_0 = np.memmap('conv_0.dat', dtype='float64', mode='w+', shape=(image.shape[0]+len(x)-1, image.shape[1], image.shape[2]))
@@ -240,26 +198,17 @@ def separable3Dconvolve(image, kernel, scaling):
     conv_2 = np.memmap('conv_2.dat', dtype='float64', mode='w+', shape=(image.shape[0]+len(x)-1, image.shape[1]+len(y)-1, image.shape[2]+len(z)-1))
     # conv_2 = np.zeros((image.shape[0]+len(x)-1, image.shape[1]+len(y)-1, image.shape[2]+len(z)-1))
 
-    print('Convolving in X...')
     for i in range(0, image.shape[1]):
         for j in range(0, image.shape[2]):
             conv_0[:,i,j] = convolve(image[:,i,j], np.squeeze(x))[:]
 
-    print(np.min(conv_0), np.max(conv_0))
-
-    print('Convolving in Y...')
     for i in range(0, conv_0.shape[0]):
         for j in range(0, conv_0.shape[2]):
             conv_1[i,:,j] = convolve(conv_0[i,:,j], np.squeeze(y))[:]
 
-    print(np.min(conv_1), np.max(conv_1))
-
-    print('Convolving in Z...')
     for i in range(0, conv_1.shape[0]):
         for j in range(0, conv_1.shape[1]):
             conv_2[i,j,:] = convolve(conv_1[i,j,:], np.squeeze(z))[:]
-
-    print(np.min(conv_2), np.max(conv_2))
 
     return conv_2
 
@@ -275,26 +224,57 @@ def box3Dconvolve(image, psf, scaling):
 
     # Loop over empty array and populate with output from convolution step sequentially in for loop
     box_shape = get_box_shape(image.shape, psf.shape)
-    print(box_shape)
     num_box = (image.shape[0]*image.shape[1]*image.shape[2])/(box_shape[0]*box_shape[1]*box_shape[2])
 
     assert int(num_box) == num_box, 'Box does not fit image'
 
     x_last, y_last, z_last = (0, 0, 0)
 
-    for i in range(0, int(num_box)):
-        print('Iteration: {}/{}'.format(i+1, int(num_box)))
+    for i in tqdm(range(0, int(num_box)), desc='Convolving'):
+
         box = image[x_last:x_last+box_shape[0], y_last:y_last+box_shape[1], z_last:z_last+box_shape[2]]
 
-        print('Box shape: ', box.shape)
+        if np.mean(box) > 0:
+            conv_box = separable3Dconvolve(box, psf, scaling)
+            conv_image[x_last:x_last+conv_box.shape[0], y_last:y_last+conv_box.shape[1], z_last:z_last+conv_box.shape[2]] += conv_box
+
+            x_last += box_shape[0]
+
+            if (x_last == image.shape[0]) and (y_last != image.shape[1]):
+                x_last = 0
+                y_last += box_shape[1]
+
+            if (y_last == image.shape[1]):
+                x_last = 0
+                y_last = 0
+                z_last += box_shape[2]
+
+            conv_image.flush
+
+    return conv_image
+
+def additive3Dconvolve(image, psf, scaling):
+
+    scaling_xy, scaling_z = scaling
+
+    x, y, z = np.nonzero(image)
+
+    # This step has to be done sequentially on various sub-cubes (boxes)
+    # Create emtpy array
+    conv_shape = (int(image.shape[0]+20*scaling_xy), int(image.shape[1]+20*scaling_xy-1), int(image.shape[2]+20*scaling_z-1))
+    # conv_image = np.zeros(conv_shape)
+    conv_image = np.memmap('conv_image.dat', dtype='float64', mode='w+', shape=conv_shape)
+
+    # Loop over empty array and populate with output from convolution step sequentially in for loop
+    box_shape = (1, 1, 1)
+
+    x_last, y_last, z_last = (0, 0, 0)
+
+    for i in tqdm(range(0, len(x)), desc='Convolving'):
+
+        box = image[x[i]:x[i]+1, y[i]:y[i]+1, z[i]:z[i]+1]
 
         conv_box = separable3Dconvolve(box, psf, scaling)
-
-        print('Conv Box shape: ', conv_box.shape)
-
-        print('Conv Image size: ', conv_image.shape)
-
-        print('Conv Image slice: ', conv_image[x_last:x_last+conv_box.shape[0], y_last:y_last+conv_box.shape[1], z_last:z_last+conv_box.shape[2]].shape)
 
         conv_image[x_last:x_last+conv_box.shape[0], y_last:y_last+conv_box.shape[1], z_last:z_last+conv_box.shape[2]] += conv_box
 
@@ -310,94 +290,54 @@ def box3Dconvolve(image, psf, scaling):
             z_last += box_shape[2]
 
         conv_image.flush
-        print('Last val: ', x_last, y_last, z_last)
 
     return conv_image
 
+
 if __name__ == '__main__':
 
-    # psf = np.array([[[0.0, 0.0, 0.0],
-    #                 [0.0, 1.0, 0.0],
-    #                 [0.0, 0.0, 0.0]],
-    #                 [[0.0, 1.0, 0.0],
-    #                 [1.0, 2.0, 1.0],
-    #                 [0.0, 1.0, 0.0]],
-    #                 [[1.0, 2.0, 1.0],
-    #                 [2.0, 4.0, 2.0],
-    #                 [1.0, 2.0, 1.0]],
-    #                 [[0.0, 1.0, 0.0],
-    #                 [1.0, 2.0, 1.0],
-    #                 [0.0, 1.0, 0.0]],
-    #                 [[0.0, 0.0, 0.0],
-    #                 [0.0, 1.0, 0.0],
-    #                 [0.0, 0.0, 0.0]]])
-
     psf_raw = tifffile.imread('PSF_BW.tif')
+    # PSF is (z, x, y) --> Must switch axes
     psf = np.swapaxes(psf_raw, 0, 2)
 
-    # plt.plot(x)
-    # plt.plot(y)
-    # plt.plot(z)
-    # plt.show()
+    # with napari.gui_qt():
+    #     viewer = napari.view_image(psf)
 
-    # # pixelsize of psf
-    # xy_pxs, z_pxs = (4, 10)
-    #
-    # psf = zoom(psf_raw, (xy_pxs, xy_pxs, z_pxs))
-    # psf = psf.astype(np.float16)
-    #
-    # print(np.min(psf), np.max(psf), psf.dtype, '{} GB'.format((psf.size * psf.itemsize)/1average pixel binning python000000000))
-
-    # # Save interpolated PSF to memmap
-    # psf = np.memmap('psf.dat', dtype='float16', mode='w+', shape=(psf_raw.shape[0]*xy_pxs, psf_raw.shape[1]*xy_pxs, psf_raw.shape[2]*z_pxs))
-    # psf[:] = zoom(psf_raw, (xy_pxs, xy_pxs, z_pxs))[:]
-    # psf.flush
-
-    coordinates = (np.loadtxt('FIB_merged_large.txt'))
-
-    print(np.min(coordinates), np.max(coordinates[:,0]), np.max(coordinates[:,1]), np.max(coordinates[:,2]))
-    print(coordinates)
+    coordinates = (np.loadtxt('segmentation.txt'))
 
     image_shape = ((roundup(int(np.max(coordinates[:,0]))),
                     roundup(int(np.max(coordinates[:,1]))),
                     roundup(int(np.max(coordinates[:,2])))))
 
-    print(image_shape)
     image = np.zeros(image_shape)
-    #
-    # x_c = coordinates[:,0].astype(int)
-    # y_c = coordinates[:,1].astype(int)
-    # z_c = coordinates[:,2].astype(int)
-    #
-    # c = x_c, y_c, z_c
-    #
-    # print('Seeding fluorophores...')
-    # poisson_dist = np.random.poisson(1000, len(x_c))
-    # image[c] = poisson_dist[:]
 
-    # conv_image = separable3Dconvolve(image, psf)
+    x_c = coordinates[:,0].astype(int)
+    y_c = coordinates[:,1].astype(int)
+    z_c = coordinates[:,2].astype(int)
+
+    c = x_c, y_c, z_c
+
+    print('Seeding fluorophores...')
+    poisson_dist = np.random.poisson(1000, len(x_c))
+    image[c] = poisson_dist[:]
 
     scaling = (20, 50)
 
     conv_shape = (int(image.shape[0]+20*scaling[0]), int(image.shape[1]+20*scaling[0]-1), int(image.shape[2]+20*scaling[1]-1))
-    conv_image = np.memmap('conv_image_out.dat', dtype='float64', mode='w+', shape=conv_shape)
-
-    print(np.min(conv_image), np.max(conv_image))
+    conv_image = tifffile.memmap('raw_conv_image.tif', dtype='float64', mode='w+', shape=conv_shape)
 
     conv_image[:] = box3Dconvolve(image, psf, scaling)[:]
 
-    binned_conv_image = xyz_binning(conv_image, 20, 20, 50)
+    binned_conv_image = xyz_binning(conv_image, scaling[0], scaling[0], scaling[1])
 
-    # conv_image = convolve(image, psf)
-    #
+    # Swap axes for ImageJ format
+    binned_conv_image = np.swapaxes(binned_conv_image, 2, 0)
 
-    #
-    # print('Saving images...')
+    tifffile.imwrite('out.tif', binned_conv_image, imagej=True)
 
-    save_dir = 'z_stack_box_separable_test_real_psf_approx/'
+    save_dir = 'z_stack_new_bin_method/'
     make_directory(save_dir)
-    print(np.min(binned_conv_image), np.max(binned_conv_image))
-    for i in tqdm(range(0, binned_conv_image.shape[2])):
+    for i in tqdm(range(0, binned_conv_image.shape[2]), desc='Saving stack'):
         print(np.min(binned_conv_image[:,:,i]), np.max(binned_conv_image[:,:,i]))
         plt.imshow(binned_conv_image[:,:,i], vmin=0, vmax=10000, cmap='magma')
         plt.savefig(save_dir + str(i) + '.png')
