@@ -1,2 +1,13 @@
-# project-superball
-Project Superball (FLUMI = FLUorescence MIcroscopy) simulates stacks of fluorescence microscopy images from a given ground truth structure. The simulation is done in seven steps: (1) Choose pixel-size of voxel grid to scale ground truth structure accordingly, (2) Randomly distribute fluorophores, (3) Scale input PSF to fit voxel grid to match spatial sampling, (4) Draw fluorophore photon emission from Poisson distribution, (5) Convolve voxel grid with PSF, (6) Simulate detector resolution by binning output of voxel grid in x, y and z, (7) Add three different noise components: (a) Sensor noise from detection accuracy by drawing value from Poisson distribution with real pixel-value as mean, (b) Analog-to-digital conversion with gain set by user, (c) Additive electronic noise modelled as Gaussian with DC-offset and sigma specified by user.
+# Fluorescence Microscopy Simulator(FLUMI
+
+What is this?
+
+FLUMI is a straightforward fluorescence microscopy simulator that uses point-clouds as ground truth structures and returns a simulated z-stack either as a TIFF stack or as PNG files in a directory. The simulation is done in seven steps: 
+1. Fluorophores from the point-cloud are seeded onto a voxel grid
+2. Experimental PSFs are approximated as a Gaussian to allow separable (and memory-efficient) convolution
+3. Fluorophore photon emission is assigned by drawing from a Poisson distribution
+4. The voxel grid is convolved with the approximated PSF by compartmentalising the grid into smaller boxes where the convolution is sequentially computed thus returning a simulated sample.
+5. The simulated sample is ‘acquired’ by binning the voxel grid to match the detector resolution and noise is added:
+  - Sensor noise that results from the detection accuracy which is modelled by drawing the 	detected value for the given  pixel from a Poisson distribution
+  - In the analog-to-digial-conversion step a user-defined gain is applied
+  - Additive electronic noise is modelled as a Gaussian where the DC-offset and sigma can be  	set by the user
