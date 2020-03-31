@@ -17,6 +17,7 @@ FLUMI is a straightforward fluorescence microscopy simulator that uses point-clo
 FLUMI can be executed from the command line allowing the user to specify the following arguments:
 - input structure (string): `--struc` (required)
 - target location (string): `--save_as` (required)
+- convolution method (either 'box' or 'additive'): `--method`
 - experimental PSF in TIFF format (string): `--psf`
 - numerical aperture (float): `--NA`
 - wavelength (int): `--wl`
@@ -25,3 +26,9 @@ FLUMI can be executed from the command line allowing the user to specify the fol
 - sigma noise (float): `--sigma`
 - voxel grid size which is the pixelsize of the input structure (int tuple of shape (x, y, z)): `--voxel_size`
 - PSF size which is also the pixelsize of the simulated sensor (int tuple of shape (x, y, z)): `--psf_size`
+
+A simulation using a point-cloud of fluorophores and an experimental PSF that is saved to a directory would look like this:
+```
+python main.py --struc 'segmentation.txt' --psf 'PSF_BW.tif' --save_as 'Simulation'
+```
+
