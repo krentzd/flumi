@@ -35,6 +35,7 @@ python main.py --struc 'segmentation.txt' --psf 'PSF_BW.tif' --save_as 'Simulati
 ```
 
 ## Installation 
+FLUMI runs on Python 3.7.4 and backward compatibility cannot be guaranteed.
 ### Install Dependencies  
 ```
 pip install tifffile
