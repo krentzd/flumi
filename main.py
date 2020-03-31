@@ -19,19 +19,19 @@ import tifffile
 import os
 import tempfile
 import imageio
+import argparse
 
 import numpy as np
 
-from tensorly.decomposition import parafac
+from tqdm import tqdm
 
-import matplotlib.pyplot as plt
+from tensorly.decomposition import parafac
 
 from scipy.signal import gaussian
 from scipy.signal import convolve
 from scipy.ndimage import zoom
 from scipy.optimize import curve_fit
 
-from tqdm import tqdm
 
 class Simulator:
 
@@ -76,7 +76,7 @@ class Simulator:
         elif 'structure' in params:
             self.load_structure(params['structure'])
 
-        if 'psf' in params:
+        if 'psf' in params and params['psf'] is not None:
             self.load_psf(params['psf'])
 
 
@@ -121,12 +121,12 @@ class Simulator:
             for i in tqdm(range(0, self.binned_conv_volume.shape[2]), desc='Saving images to {}'.format(path)):
                 save_path = os.path.join(path, str(i) + '.png')
                 print(save_path)
-                imageio.imwrite(save_path, self.binned_conv_volume[:,:,i])
+                imageio.imwrite(save_path, self.binned_conv_volume[:,:,i].astype('int16'))
 
         elif type is 'tif':
             if os.path.splitext(path)[1] is '':
                 path = path + '.tif'
-            binned_conv_volume_out = np.swapaxes(self.binned_conv_volume, 2, 0).astype('uint8')
+            binned_conv_volume_out = np.swapaxes(self.binned_conv_volume, 2, 0).astype('int16')
             tifffile.imwrite(path, binned_conv_volume_out, imagej=True)
 
     def box3Dconvolve(self):
@@ -186,7 +186,7 @@ class Simulator:
 
         with tempfile.NamedTemporaryFile() as conv_2_temp:
             conv_2_shape = (volume.shape[0] + len(self.psf_x) - 1,
-                            volume.shape[1] + len(self.psf_y) - 1,
+                            volume.shape[1] + len(self.psf_y) - 1,argparse
                             volume.shape[2] + len(self.psf_z) - 1)
             conv_2 = np.memmap(conv_2_temp.name,
                                dtype='float64',
@@ -208,6 +208,7 @@ class Simulator:
         return conv_2
 
     def acquire(self):
+
         x_bin_size, y_bin_size, z_bin_size = int(self.scaling[0]), int(self.scaling[1]), int(self.scaling[2])
         binned_image_shape = (int(self.conv_shape[0]/x_bin_size+1), int(self.conv_shape[1]/y_bin_size+1), int(self.conv_shape[2]/z_bin_size+1))
         binned_image = np.zeros(binned_image_shape)
@@ -252,21 +253,22 @@ class Simulator:
         return params[0]*np.expand_dims(gaussian(int(params[1]*scaling), std=params[2]*scaling), 1)
 
     def _get_gaussians_from_kernel(self):
+
         try:
             x, y, z = parafac(self.psf, 1)
         except ValueError:
             __, (x, y, z) = parafac(self.psf, 1)
 
         gauss_params = np.abs(self._fit_gaussian(np.array(np.squeeze(x))))
-        gauss_params[1] = gauss_params[2]*12*scaling
+        gauss_params[1] = gauss_params[2]*12
         x = self._get_gaussian(gauss_params, self.scaling[0])
 
         gauss_params = np.abs(self._fit_gaussian(np.array(np.squeeze(y))))
-        gauss_params[1] = gauss_params[2]*12*scaling
+        gauss_params[1] = gauss_params[2]*12
         y = self._get_gaussian(gauss_params, self.scaling[1])
 
         gauss_params = np.abs(self._fit_gaussian(np.array(np.squeeze(z))))
-        gauss_params[1] = gauss_params[2]*12*scaling
+        gauss_params[1] = gauss_params[2]*12
         z = self._get_gaussian(gauss_params, self.scaling[2])
 
         return x, y, z
@@ -323,6 +325,30 @@ class Simulator:
         return x if x % 10 == 0 else x + 10 - x % 10
 
 if __name__ == '__main__':
-    sim = Simulator()
-    sim.run(structure='segmentation.txt') #, psf='PSF_BW.tif')
-    sim.save('Segmentation_first_run')
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--struc', required=True)
+    parser.add_argument('--save_as', required=True)
+    parser.add_argument('--method', default='box')
+    parser.add_argument('--psf')
+    parser.add_argument('--NA', default=1)
+    parser.add_argument('--wl', default=250)
+    parser.add_argument('--gain', default=1)
+    parser.add_argument('--dc_off', default=200)
+    parser.add_argument('--sigma', default=50)
+    parser.add_argument('--voxel_size', default=(5, 5, 5))
+    parser.add_argument('--psf_size', default=(100, 100, 250))
+
+    args = parser.parse_args()
+
+    sim = Simulator(numerical_aperture=args.NA,
+                    wavelength=args.wl,
+                    gain=args.gain,
+                    dc_offset=args.dc_off,
+                    noise_sigma=args.sigma,
+                    voxel_pixelsize=args.voxel_size,
+                    psf_pixelsize=args.psf_size)
+
+    sim.run(conv_method=args.method, structure=args.struc, psf=args.psf)
+    sim.save(args.save_as)
