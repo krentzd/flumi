@@ -34,3 +34,27 @@ A simulation using a point-cloud of fluorophores and an experimental PSF that is
 python main.py --struc 'segmentation.txt' --psf 'PSF_BW.tif' --save_as 'Simulation'
 ```
 
+## Installation 
+
+The following dependencies need to be installed:
+```
+pip install tifffile
+```
+```
+pip install imageio
+```
+```
+pip install argparse
+```
+```
+pip install tqdm
+```
+```
+pip install numpy
+```
+```
+pip install tensorly
+```
+```
+pip install scipy
+```
