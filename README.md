@@ -1,6 +1,6 @@
 # Fluorescence Microscopy Simulator(FLUMI
 
-What is this?
+## What is this?
 
 FLUMI is a straightforward fluorescence microscopy simulator that uses point-clouds as ground truth structures and returns a simulated z-stack either as a TIFF stack or as PNG files in a directory. The simulation is done in seven steps: 
 1. Fluorophores from the point-cloud are seeded onto a voxel grid
