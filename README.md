@@ -58,3 +58,14 @@ pip install tensorly
 ```
 pip install scipy
 ```
+
+Clone this repository:
+```
+git clone https://github.com/krentzd/project-superball.git
+```
+
+Navigate to the folder called `project-superball` and run:
+```
+python main.py --struc 'segmentation.txt' --psf 'PSF_BW.tif' --save_as 'Simulation'
+```
+
