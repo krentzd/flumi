@@ -61,7 +61,7 @@ pip install scipy
 
 Clone this repository:
 ```
-git clone https://github.com/krentzd/project-superball.git
+git clone https://github.com/krentzd/flumi.git
 ```
 
 Navigate to the folder called `project-superball` and run:
